@@ -1,0 +1,32 @@
+# Virtual environment
+venv/
+
+# Byte-compiled Python files
+__pycache__/
+*.pyc
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Downloaded videos (default directory)
+Downloads/
+
+# IDE files (optional)
+.vscode/
+.idea/
+
+# Python cache and test files
+*.pytest_cache/
+.pytest_cache/
+
+# Environment variables and secrets
+.env
+.env.*
+
+# Coverage reports
+htmlcov/
+.coverage
