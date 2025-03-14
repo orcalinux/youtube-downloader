@@ -151,5 +151,3 @@ This project provides a simple and user-friendly command-line tool to download s
 This project is licensed under the [MIT License](LICENSE).
 
 Feel free to copy, modify, and distribute under the same license.
-
-We appreciate your feedback and contributions!
