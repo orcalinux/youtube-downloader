@@ -2,6 +2,41 @@
 
 This project provides a simple and user-friendly command-line tool to download single YouTube videos or entire playlists. The interface uses [Rich](https://github.com/Textualize/rich) for beautiful, interactive prompts, and gracefully handles **Ctrl+C** (interrupt signals) without flooding the console with Python tracebacks.
 
+## New Feature: Docker Support
+
+In addition to running the downloader locally with Python, you can now run it inside a **Docker container**, making it even easier for others to use without installing Python or other dependencies.
+
+1. **Build the Docker image** (from the project root):
+
+   ```bash
+   docker build -t youtube-downloader .
+   ```
+
+2. **Run the container**:
+
+   ```bash
+   docker run -it --rm youtube-downloader
+   ```
+
+   - `-it` (interactive + TTY) allows you to see the interactive prompts and respond in real time.
+   - `--rm` automatically removes the container when it stops, so you don’t clutter your system with stopped containers.
+
+3. **Share the Docker image**:
+   - (Optional) If you want others to use your pre-built image, push it to a registry (e.g., Docker Hub):
+     ```bash
+     docker tag youtube-downloader <your-dockerhub-username>/youtube-downloader:latest
+     docker push <your-dockerhub-username>/youtube-downloader:latest
+     ```
+   - Then others can simply:
+     ```bash
+     docker pull <your-dockerhub-username>/youtube-downloader:latest
+     docker run -it --rm <your-dockerhub-username>/youtube-downloader:latest
+     ```
+
+That’s it! Now anyone with Docker installed can use the YouTube Downloader without manually installing Python or the required libraries.
+
+---
+
 ## Features
 
 1. **Single Video or Playlist**:
@@ -16,7 +51,7 @@ This project provides a simple and user-friendly command-line tool to download s
 3. **Graceful Interruption**:
 
    - Pressing **Ctrl+C** at any prompt immediately cancels the operation without displaying an exception traceback.
-   - Displays a short “Operation cancelled by user.” message and logs the interruption event (including a timestamp) in both the console and a log file.
+   - Displays a short `Operation cancelled by user.` message and logs the interruption event (including a timestamp) in both the console and a log file.
 
 4. **Logging**:
 
@@ -32,7 +67,7 @@ This project provides a simple and user-friendly command-line tool to download s
 
 ---
 
-## Getting Started
+## Getting Started (Local Installation)
 
 1. **Clone the Repository**:
 
@@ -149,5 +184,4 @@ This project provides a simple and user-friendly command-line tool to download s
 ## License
 
 This project is licensed under the [MIT License](LICENSE).
-
 Feel free to copy, modify, and distribute under the same license.
