@@ -53,6 +53,6 @@ docker-build:
 	@echo "Building Docker image: $(IMAGE_NAME)"
 	docker build -t $(IMAGE_NAME) .
 
-docker-run:
+docker-run: docker-build
 	@echo "Running Docker container from image: $(IMAGE_NAME)"
 	docker run -it --rm $(IMAGE_NAME)
