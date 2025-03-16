@@ -1,3 +1,5 @@
+# Makefile for Professional YouTube Downloader Project
+
 VENV_DIR = .venv
 PYTHON = python3
 PIP = $(VENV_DIR)/bin/pip
@@ -44,7 +46,7 @@ help:
 	@echo "  run           - Execute downloader"
 	@echo "  clean         - Remove virtual environment and logs"
 	@echo "  docker-build  - Build Docker image"
-	@echo "  docker-run    - Run Docker container interactively"
+	@echo "  docker-run    - Build (if needed) then run Docker container"
 	@echo "  help          - Show this help message"
 
 docker-build:
@@ -53,6 +55,4 @@ docker-build:
 
 docker-run:
 	@echo "Running Docker container from image: $(IMAGE_NAME)"
-	docker run -it --rm \
-	    -v $(PWD)/Downloads:/root/$(USER)/home/Download \
-	    $(IMAGE_NAME)
+	docker run -it --rm $(IMAGE_NAME)
