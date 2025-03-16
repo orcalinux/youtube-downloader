@@ -33,7 +33,38 @@ In addition to running the downloader locally with Python, you can now run it in
      docker run -it --rm <your-dockerhub-username>/youtube-downloader:latest
      ```
 
-That’s it! Now anyone with Docker installed can use the YouTube Downloader without manually installing Python or the required libraries.
+### Using a Default Download Path in Docker
+
+By default, if you run the image as-is, downloads go **inside the container** (e.g., `/root/Downloads`). If you prefer to use a **custom default path** (`/root/$USER/home/Download`) and have downloads appear **on your host machine**, you can use a **bind mount**:
+
+```bash
+docker run -it --rm \
+  -v /path/on/your/host:/root/$USER/home/Download \
+  youtube-downloader
+```
+
+- Replace `/path/on/your/host` with the directory on your **host** computer where you want the downloads to appear.
+- Inside the container, the path `/root/$USER/home/Download` is recognized as the download directory.
+- When prompted by the program for the “Download directory,” just press Enter to accept the default if you’ve set your code to that path. (Or type `/root/$USER/home/Download` explicitly if needed.)
+
+#### Example with Make
+
+If you have a **Makefile**, you can add a target to simplify running Docker with this path:
+
+```makefile
+docker-run:
+    docker run -it --rm \
+        -v $(PWD)/Downloads:/root/$(USER)/home/Download \
+        youtube-downloader
+```
+
+Then anyone can simply run:
+```bash
+make docker-run
+```
+…and their **local `Downloads/` folder** is mounted to the container at `/root/$USER/home/Download`.
+
+That’s it! Now anyone with Docker installed can use the YouTube Downloader without manually installing Python or the required libraries, and still keep their downloaded files on their host system.
 
 ---
 
@@ -93,6 +124,7 @@ That’s it! Now anyone with Docker installed can use the YouTube Downloader wit
    Ensures `ffmpeg` is installed on your system.
 
 4. **Run the Application**:
+
    ```bash
    make run
    ```
@@ -112,7 +144,7 @@ That’s it! Now anyone with Docker installed can use the YouTube Downloader wit
 
 2. **Enter Download Directory**:
 
-   - Defaults to `~/Downloads`.
+   - Defaults to `~/Downloads` (or `/root/$USER/home/Download` if you’ve set that in Docker).
    - Press Enter to accept default, or specify a custom path.
 
 3. **Enter YouTube URL**:
@@ -183,5 +215,5 @@ That’s it! Now anyone with Docker installed can use the YouTube Downloader wit
 
 ## License
 
-This project is licensed under the [MIT License](LICENSE).
+This project is licensed under the [MIT License](LICENSE).  
 Feel free to copy, modify, and distribute under the same license.
