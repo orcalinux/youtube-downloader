@@ -1,13 +1,13 @@
-# Makefile for Professional YouTube Downloader Project
-
 VENV_DIR = .venv
 PYTHON = python3
 PIP = $(VENV_DIR)/bin/pip
 PYTHON_BIN = $(VENV_DIR)/bin/python
 REQUIREMENTS = requirements.txt
 APP = main.py
+IMAGE_NAME = youtube-downloader
 
-.PHONY: all venv install check_ffmpeg run clean help
+.PHONY: all venv install check_ffmpeg run clean help \
+        docker-build docker-run
 
 all: run
 
@@ -38,9 +38,21 @@ clean:
 
 help:
 	@echo "Available targets:"
-	@echo "  venv         - Set up virtual environment"
-	@echo "  install      - Install dependencies"
-	@echo "  check_ffmpeg - Verify ffmpeg installation"
-	@echo "  run          - Execute downloader"
-	@echo "  clean        - Remove virtual environment and logs"
-	@echo "  help         - Show this help message"
+	@echo "  venv          - Set up virtual environment"
+	@echo "  install       - Install dependencies"
+	@echo "  check_ffmpeg  - Verify ffmpeg installation"
+	@echo "  run           - Execute downloader"
+	@echo "  clean         - Remove virtual environment and logs"
+	@echo "  docker-build  - Build Docker image"
+	@echo "  docker-run    - Run Docker container interactively"
+	@echo "  help          - Show this help message"
+
+docker-build:
+	@echo "Building Docker image: $(IMAGE_NAME)"
+	docker build -t $(IMAGE_NAME) .
+
+docker-run:
+	@echo "Running Docker container from image: $(IMAGE_NAME)"
+	docker run -it --rm \
+	    -v $(PWD)/Downloads:/root/$(USER)/home/Download \
+	    $(IMAGE_NAME)
