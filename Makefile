@@ -38,6 +38,14 @@ clean:
 	@echo "Cleaning up..."
 	rm -rf $(VENV_DIR) *.log
 
+docker-build:
+	@echo "Building Docker image: $(IMAGE_NAME)"
+	docker build -t $(IMAGE_NAME) .
+
+docker-run: docker-build
+	@echo "Running Docker container from image: $(IMAGE_NAME)"
+	docker run -it --rm $(IMAGE_NAME)
+
 help:
 	@echo "Available targets:"
 	@echo "  venv          - Set up virtual environment"
@@ -48,11 +56,3 @@ help:
 	@echo "  docker-build  - Build Docker image"
 	@echo "  docker-run    - Build (if needed) then run Docker container"
 	@echo "  help          - Show this help message"
-
-docker-build:
-	@echo "Building Docker image: $(IMAGE_NAME)"
-	docker build -t $(IMAGE_NAME) .
-
-docker-run: docker-build
-	@echo "Running Docker container from image: $(IMAGE_NAME)"
-	docker run -it --rm $(IMAGE_NAME)
