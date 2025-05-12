@@ -54,5 +54,5 @@ help:
 	@echo "  run           - Execute downloader"
 	@echo "  clean         - Remove virtual environment and logs"
 	@echo "  docker-build  - Build Docker image"
-	@echo "  docker-run    - Build (if needed) then run Docker container"
+	@echo "  docker-run    - Run Docker container"
 	@echo "  help          - Show this help message"
