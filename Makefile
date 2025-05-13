@@ -1,14 +1,13 @@
 ###############################################################################
-# YouTube-Downloader – Makefile
-#
-# QUICK COMMANDS
-#   make run                       -> local venv run (auto-installs deps)
-#   make docker-run [HOST_DIR=/x]  -> build if needed + launch container
-#   make deps-update               -> regenerate requirements.{in,txt}
-#   make help                      -> list all targets / variables
+# YouTube-Downloader – Makefile  (quiet, colour status, no emojis)
+###############################################################################
+# make run                → local venv run  (silent dependency install)
+# make docker-run         → build if needed + launch container
+# make deps-update        → regenerate requirements.{in,txt}
+# make help               → list all targets / variables
 ###############################################################################
 
-# ─────────────────────────── Core configuration ──────────────────────────────
+# ── core paths ───────────────────────────────────────────────────────────────
 VENV_DIR        := .venv
 PYTHON          := python3
 PIP             := $(VENV_DIR)/bin/pip
@@ -17,7 +16,6 @@ PYTHON_BIN      := $(VENV_DIR)/bin/python
 REQUIREMENTS    := requirements.txt
 REQUIREMENTS_IN := requirements.in
 DEPS_OK_FILE    := $(VENV_DIR)/.deps-ok
-
 APP             := main.py
 
 IMAGE_NAME      := youtube-downloader
@@ -28,115 +26,83 @@ CONTAINER_DIR   := /downloads
 
 BUILD_DEPS      := Dockerfile $(REQUIREMENTS) $(wildcard *.py utils/*.py)
 
-# ─────────────────────── Colour helpers for help banner ──────────────────────
-B := \033[1m
-G := \033[32m
-NC := \033[0m
+# ── ANSI colours ─────────────────────────────────────────────────────────────
+CLR_RESET  := \033[0m
+CLR_YELLOW := \033[1;33m
+CLR_CYAN   := \033[1;36m
+CLR_GREEN  := \033[1;32m
+CLR_MAG    := \033[1;35m
+CLR_RED    := \033[1;31m
 
-# ───────────────────────────── PHONY targets ────────────────────────────────
-.PHONY: all help \
-        run venv deps deps-update check_ffmpeg clean \
-        docker-build docker-run
-
-###############################################################################
-# Default: local run
-###############################################################################
-all: run                                    ## Local venv run (default target)
+# ── phony targets ────────────────────────────────────────────────────────────
+.PHONY: all help run venv deps deps-update check_ffmpeg clean docker-build docker-run
 
 ###############################################################################
-# Virtual-env & idempotent dependency install
+all: run
 ###############################################################################
+
+# ── virtual-env & deps ───────────────────────────────────────────────────────
 $(VENV_DIR):
-	@echo "Creating virtual environment …"
-	$(PYTHON) -m venv $@
+	@printf "$(CLR_YELLOW)Creating virtual environment...$(CLR_RESET)\n"
+	@$(PYTHON) -m venv $@ >/dev/null
 
-venv: $(VENV_DIR)                           ## Create venv (dev)
+venv: $(VENV_DIR)
 
 $(DEPS_OK_FILE): $(REQUIREMENTS) | venv
-	@echo "Installing / upgrading dependencies …"
-	@$(PIP) install --upgrade pip
-	@$(PIP) install -r $(REQUIREMENTS)
+	@printf "$(CLR_YELLOW)Installing Python packages...$(CLR_RESET)\n"
+	@$(PIP) install --quiet --upgrade pip >/dev/null
+	@$(PIP) install --quiet -r $(REQUIREMENTS) >/dev/null
 	@date > $@
 
-deps: $(DEPS_OK_FILE)                       ## Install / upgrade deps (dev)
+deps: $(DEPS_OK_FILE)
 
-###############################################################################
-# deps-update – rebuild requirements.{in,txt}
-###############################################################################
-deps-update: | venv                         ## Refresh dependency files
-	@echo "Regenerating requirements.{in,txt} …"
+# ── deps-update ──────────────────────────────────────────────────────────────
+deps-update: | venv
+	@printf "$(CLR_CYAN)Regenerating requirements files...$(CLR_RESET)\n"
+	@$(PIP) show pipreqs  >/dev/null 2>&1 || $(PIP) install -q pipreqs
+	@$(PIP) show pip-tools >/dev/null 2>&1 || $(PIP) install -q pip-tools
+	@IGNORES=".git,.venv,__pycache__,build,dist,images,docs" ; \
+	$(VENV_DIR)/bin/pipreqs . --force --encoding=utf-8 \
+	    --ignore $$IGNORES --savepath $(REQUIREMENTS_IN) >/dev/null 2>&1
+	@$(VENV_DIR)/bin/pip-compile $(REQUIREMENTS_IN) \
+	    -o $(REQUIREMENTS) --strip-extras --quiet
+	@rm -f $(DEPS_OK_FILE)
+	@printf "$(CLR_GREEN)requirements.txt updated$(CLR_RESET)\n"
 
-	@# Ensure helper tools exist inside the venv
-	@$(PIP) show pipreqs  >/dev/null 2>&1 || $(PIP) install --quiet pipreqs
-	@$(PIP) show pip-tools >/dev/null 2>&1 || $(PIP) install --quiet pip-tools
-
-	@IGNORES=".git,.venv,__pycache__,build,dist,images,docs" ;\
-	echo "  • running pipreqs quietly (ignoring $$IGNORES)" ;\
-	$(VENV_DIR)/bin/pipreqs . --force \
-	    --encoding=utf-8 \
-	    --ignore $$IGNORES \
-	    --savepath $(REQUIREMENTS_IN) \
-	    >/dev/null 2>&1
-
-	@echo "  • pinning versions with pip-compile (quiet)"
-	@$(VENV_DIR)/bin/pip-compile $(REQUIREMENTS_IN) -o $(REQUIREMENTS) \
-	    --strip-extras --quiet
-
-	@rm -f $(DEPS_OK_FILE)                    # reinstall on next make deps
-	@echo "Dependency files updated."
-
-###############################################################################
-# Local ffmpeg sanity check
-###############################################################################
+# ── local run ────────────────────────────────────────────────────────────────
 check_ffmpeg:
 	@command -v ffmpeg >/dev/null || { \
-	  echo "ffmpeg not found — please install"; exit 1; }
-	@echo "ffmpeg found."
+	  printf "$(CLR_RED)ffmpeg not found—install it$(CLR_RESET)\n"; exit 1; }
 
-###############################################################################
-# Local run
-###############################################################################
-run: deps check_ffmpeg                      ## Local venv run
-	@echo "Running app locally …"
+run: deps check_ffmpeg
+	@printf "$(CLR_GREEN)Starting application (local)$(CLR_RESET)\n"
 	@$(PYTHON_BIN) $(APP)
 
-###############################################################################
-# Docker – rebuild only when sources change
-###############################################################################
+# ── Docker build & run ───────────────────────────────────────────────────────
 $(DOCKER_STAMP): $(BUILD_DEPS)
-	@echo "🔨  Building Docker image '$(IMAGE_NAME)' …"
-	docker build -t $(IMAGE_NAME) .
+	@printf "$(CLR_YELLOW)Building Docker image$(CLR_RESET)\n"
+	@docker build -q -t $(IMAGE_NAME) . >/dev/null
 	@date > $@
 
-docker-build: $(DOCKER_STAMP)               ## Force Docker rebuild
+docker-build: $(DOCKER_STAMP)
 
-###############################################################################
-# Docker – run
-###############################################################################
-docker-run: docker-build                    ## Launch interactive container
-	@echo "🚀  Launching container (host dir → $(HOST_DIR)) …"
-	docker run -it --rm \
-		-v $(HOST_DIR):$(CONTAINER_DIR) \
-		-e XDG_DOWNLOAD_DIR=$(CONTAINER_DIR) \
-		--name $(IMAGE_NAME) \
-		$(IMAGE_NAME)
+docker-run: docker-build
+	@printf "$(CLR_GREEN)Launching container → $(HOST_DIR)$(CLR_RESET)\n"
+	@docker run -it --rm \
+	    -v $(HOST_DIR):$(CONTAINER_DIR) \
+	    -e XDG_DOWNLOAD_DIR=$(CONTAINER_DIR) \
+	    --name $(IMAGE_NAME) \
+	    $(IMAGE_NAME)
 
-###############################################################################
-# Cleanup
-###############################################################################
-clean:                                      ## Remove venv, logs, docker stamp
-	@echo "Cleaning workspace …"
+# ── cleanup ──────────────────────────────────────────────────────────────────
+clean:
+	@printf "$(CLR_MAG)Cleaning workspace...$(CLR_RESET)\n"
 	@rm -rf $(VENV_DIR) *.log $(DOCKER_STAMP)
 
-###############################################################################
-# Help
-###############################################################################
+# ── help ─────────────────────────────────────────────────────────────────────
 help:
-	@echo
-	@echo "$(B)Targets$(NC)"
+	@printf "\n$(CLR_GREEN)Targets$(CLR_RESET)\n"
 	@grep -E '^[a-zA-Z_-]+:.*?##' $(MAKEFILE_LIST) | \
-	  awk 'BEGIN{FS=":.*?##"}{printf "  $(G)%-15s$(NC) %s\n",$$1,$$2}'
-	@echo
-	@echo "$(B)Overridable variables$(NC)"
-	@echo "  HOST_DIR=/path    Bind-mount for docker-run (default: $$HOME/Downloads)"
-	@echo
+	  awk 'BEGIN{FS=":.*?##"}{printf "  %-14s %s\n",$$1,$$2}'
+	@printf "\n$(CLR_GREEN)Variable overrides$(CLR_RESET)\n"
+	@printf "  HOST_DIR=/path   host download dir (default: $$HOME/Downloads)\n\n"
