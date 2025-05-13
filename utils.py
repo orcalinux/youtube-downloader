@@ -2,7 +2,6 @@
 import os
 import sys
 from urllib.parse import urlparse
-
 from rich.console import Console
 from rich.prompt import Prompt
 import validators
