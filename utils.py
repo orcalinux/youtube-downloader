@@ -27,7 +27,7 @@ def safe_prompt(prompt_str, **kwargs):
             return Prompt.ask(prompt_str, **kwargs)
         except KeyboardInterrupt:
             print("")  # keep ^C on the same line
-            console.print("[bold red]⛔ Interrupted![/bold red]")
+            console.print("[bold red]Interrupted![/bold red]")
             choice = Prompt.ask(
                 "Do you really want to exit?",
                 choices=["y", "n"],
@@ -56,7 +56,7 @@ def prompt_directory():
     """
     Bash-style TAB completion + Rich-coloured prompt.
     """
-    default_dir = os.path.expanduser("~/Downloads")
+    default_dir = os.environ.get("XDG_DOWNLOAD_DIR", os.path.expanduser("~/Downloads"))
 
     YELLOW = "\033[1;33m"
     CYAN   = "\033[1;36m" 
@@ -90,7 +90,7 @@ def prompt_directory():
 
         except KeyboardInterrupt:
             print("")
-            console.print("[bold red]⛔ Interrupted![/bold red]")
+            console.print("[bold red]Interrupted![/bold red]")
             if Prompt.ask("Do you really want to exit?", choices=["y", "n"],
                           default="y") == "y":
                 console.print("[bold blue]Goodbye![/bold blue]")

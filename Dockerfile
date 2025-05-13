@@ -1,15 +1,29 @@
-FROM python:3.11-slim
+# ───────────────────────────── Dockerfile ─────────────────────────────
+FROM python:3.12-slim
 
-# Install ffmpeg
-RUN apt-get update && apt-get install -y ffmpeg && rm -rf /var/lib/apt/lists/*
+# --- system deps ------------------------------------------------------
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends ffmpeg ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
 
+# --- app setup --------------------------------------------------------
 WORKDIR /app
 
-# Copy dependencies and install them
-COPY requirements.txt .
+# copy dependency files first (leverages Docker layer cache)
+COPY requirements.txt requirements.in* ./
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy your source code
-COPY . /app
+# copy source
+COPY . .
 
-CMD ["python", "main.py"]
+# --- non-root user ----------------------------------------------------
+RUN useradd -ms /bin/bash downloader
+USER downloader
+
+# default download dir inside container (can be bind-mounted)
+ENV XDG_DOWNLOAD_DIR=/downloads
+
+VOLUME ["/downloads"]  # nice UX hint in `docker inspect`
+
+# --- start app --------------------------------------------------------
+ENTRYPOINT ["python", "main.py"]

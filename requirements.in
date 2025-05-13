@@ -1,5 +1,5 @@
-rich
-tqdm
-validators
-yt-dlp
-prompt-toolkit
+prompt_toolkit==3.0.51
+rich==14.0.0
+tqdm==4.67.1
+validators==0.35.0
+yt_dlp==2025.4.30
