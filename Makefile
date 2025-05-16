@@ -80,8 +80,8 @@ run: deps check_ffmpeg
 
 # ── Docker build & run ───────────────────────────────────────────────────────
 $(DOCKER_STAMP): $(BUILD_DEPS)
-	@printf "$(CLR_YELLOW)Building Docker image$(CLR_RESET)\n"
-	@docker build -q -t $(IMAGE_NAME) . >/dev/null
+	@printf "$(CLR_YELLOW)Building Docker image...$(CLR_RESET)\n"
+	@docker build --progress=plain -t $(IMAGE_NAME) . >/dev/null
 	@date > $@
 
 docker-build: $(DOCKER_STAMP)
