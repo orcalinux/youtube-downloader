@@ -1,29 +1,29 @@
 # ───────────────────────────── Dockerfile ─────────────────────────────
 FROM python:3.12-slim
 
-# --- system deps ------------------------------------------------------
+# ── system deps ───────────────────────────────────────────────────────
 RUN apt-get update && \
     apt-get install -y --no-install-recommends ffmpeg ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
-# --- app setup --------------------------------------------------------
+# ── create non-root user and own /app ─────────────────────────────────
+RUN useradd -ms /bin/bash downloader \
+    && mkdir -p /app \
+    && chown downloader:downloader /app
+
 WORKDIR /app
 
-# copy dependency files first (leverages Docker layer cache)
-COPY requirements.txt requirements.in* ./
+# ── deps first (good cache) ───────────────────────────────────────────
+COPY --chown=downloader:downloader requirements.txt requirements.in* ./
 RUN pip install --no-cache-dir -r requirements.txt
 
-# copy source
-COPY . .
+# ── copy the source, already owned by downloader ──────────────────────
+COPY --chown=downloader:downloader . .
 
-# --- non-root user ----------------------------------------------------
-RUN useradd -ms /bin/bash downloader
 USER downloader
 
-# default download dir inside container (can be bind-mounted)
+# default download dir (override with HOST_DIR / CONTAINER_DIR from Make)
 ENV XDG_DOWNLOAD_DIR=/downloads
+VOLUME ["/downloads"]
 
-VOLUME ["/downloads"]  # nice UX hint in `docker inspect`
-
-# --- start app --------------------------------------------------------
 ENTRYPOINT ["python", "main.py"]

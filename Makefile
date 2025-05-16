@@ -75,7 +75,7 @@ check_ffmpeg:
 	  printf "$(CLR_RED)ffmpeg not found—install it$(CLR_RESET)\n"; exit 1; }
 
 run: deps check_ffmpeg
-	@printf "$(CLR_GREEN)Starting application (local)...$(CLR_RESET)\n"
+	@printf "$(CLR_GREEN)Starting application [local]...$(CLR_RESET)\n"
 	@$(PYTHON_BIN) $(APP)
 
 # ── Docker build & run ───────────────────────────────────────────────────────
