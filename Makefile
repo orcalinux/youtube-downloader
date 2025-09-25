@@ -35,7 +35,7 @@ CLR_MAG    := \033[1;35m
 CLR_RED    := \033[1;31m
 
 # ── phony targets ────────────────────────────────────────────────────────────
-.PHONY: all help run venv deps deps-update check_ffmpeg clean docker-build docker-run
+.PHONY: all help run venv deps deps-update check_ffmpeg check_host_dir clean docker-build docker-run
 
 ###############################################################################
 all: run ## Default target – alias for `make run`
@@ -70,9 +70,41 @@ deps-update: | venv ## Re-generate requirements.{in,txt} from imports
 	@printf "$(CLR_GREEN)requirements.txt updated$(CLR_RESET)\n"
 
 # ── local run ────────────────────────────────────────────────────────────────
-check_ffmpeg: ## Abort if ffmpeg is missing on the host
-	@command -v ffmpeg >/dev/null || { \
-	  printf "$(CLR_RED)ffmpeg not found—install it$(CLR_RESET)\n"; exit 1; }
+check_ffmpeg: ## Check ffmpeg availability and install if missing
+	@if ! command -v ffmpeg >/dev/null 2>&1; then \
+	  printf "$(CLR_YELLOW)ffmpeg not found, attempting to install...$(CLR_RESET)\n"; \
+	  if command -v apt >/dev/null 2>&1; then \
+	    printf "$(CLR_CYAN)Installing ffmpeg using apt...$(CLR_RESET)\n"; \
+	    sudo apt update -qq && sudo apt install -y ffmpeg; \
+	  elif command -v yum >/dev/null 2>&1; then \
+	    printf "$(CLR_CYAN)Installing ffmpeg using yum...$(CLR_RESET)\n"; \
+	    sudo yum install -y ffmpeg; \
+	  elif command -v dnf >/dev/null 2>&1; then \
+	    printf "$(CLR_CYAN)Installing ffmpeg using dnf...$(CLR_RESET)\n"; \
+	    sudo dnf install -y ffmpeg; \
+	  elif command -v pacman >/dev/null 2>&1; then \
+	    printf "$(CLR_CYAN)Installing ffmpeg using pacman...$(CLR_RESET)\n"; \
+	    sudo pacman -S --noconfirm ffmpeg; \
+	  elif command -v zypper >/dev/null 2>&1; then \
+	    printf "$(CLR_CYAN)Installing ffmpeg using zypper...$(CLR_RESET)\n"; \
+	    sudo zypper install -y ffmpeg; \
+	  elif command -v brew >/dev/null 2>&1; then \
+	    printf "$(CLR_CYAN)Installing ffmpeg using brew...$(CLR_RESET)\n"; \
+	    brew install ffmpeg; \
+	  else \
+	    printf "$(CLR_RED)No supported package manager found. Please install ffmpeg manually.$(CLR_RESET)\n"; \
+	    printf "$(CLR_RED)Visit: https://ffmpeg.org/download.html$(CLR_RESET)\n"; \
+	    exit 1; \
+	  fi; \
+	  if ! command -v ffmpeg >/dev/null 2>&1; then \
+	    printf "$(CLR_RED)Failed to install ffmpeg. Please install it manually.$(CLR_RESET)\n"; \
+	    exit 1; \
+	  else \
+	    printf "$(CLR_GREEN)ffmpeg successfully installed!$(CLR_RESET)\n"; \
+	  fi; \
+	else \
+	  printf "$(CLR_GREEN)ffmpeg found: $$(ffmpeg -version | head -n1)$(CLR_RESET)\n"; \
+	fi
 
 run: deps check_ffmpeg ## Launch the app locally inside the venv
 	@printf "$(CLR_GREEN)Starting application [local]...$(CLR_RESET)\n"
@@ -86,13 +118,24 @@ $(DOCKER_STAMP): $(BUILD_DEPS) ## Build docker image if sources changed
 
 docker-build: $(DOCKER_STAMP) ## Force build the image now
 
-docker-run: docker-build ## Build (if needed) + run the container
+# Create HOST_DIR if missing and ensure it's writable
+check_host_dir: ## Ensure HOST_DIR exists & is writable (auto-called by docker-run)
+	@if [ ! -d "$(HOST_DIR)" ]; then \
+	  printf "$(CLR_YELLOW)Creating host directory: $(HOST_DIR)$(CLR_RESET)\n"; \
+	  mkdir -p "$(HOST_DIR)" || { printf "$(CLR_RED)Failed to create $(HOST_DIR)$(CLR_RESET)\n"; exit 1; }; \
+	fi
+	@touch "$(HOST_DIR)/.__write_test__" 2>/dev/null || { \
+	  printf "$(CLR_RED)HOST_DIR is not writable: $(HOST_DIR)$(CLR_RESET)\n"; \
+	  exit 1; }
+	@rm -f "$(HOST_DIR)/.__write_test__"
+
+docker-run: check_host_dir docker-build ## Build (if needed) + run the container
 	@printf "$(CLR_GREEN)Launching container → $(HOST_DIR)$(CLR_RESET)\n"
 	@docker run -it --rm \
-	    -v $(HOST_DIR):$(CONTAINER_DIR) \
-	    -e XDG_DOWNLOAD_DIR=$(CONTAINER_DIR) \
-	    --name $(IMAGE_NAME) \
-	    $(IMAGE_NAME)
+	    -v "$(HOST_DIR)":"$(CONTAINER_DIR)" \
+	    -e XDG_DOWNLOAD_DIR="$(CONTAINER_DIR)" \
+	    --name "$(IMAGE_NAME)" \
+	    "$(IMAGE_NAME)"
 
 # ── cleanup ──────────────────────────────────────────────────────────────────
 clean: ## Wipe venv, logs and docker-build stamp
