@@ -1,219 +1,139 @@
 # YouTube Downloader
 
-This project provides a simple and user-friendly command-line tool to download single YouTube videos or entire playlists. The interface uses [Rich](https://github.com/Textualize/rich) for beautiful, interactive prompts, and gracefully handles **Ctrl+C** (interrupt signals) without flooding the console with Python tracebacks.
+Download single YouTube videos or entire playlists from the command line.
+Built with [yt-dlp](https://github.com/yt-dlp/yt-dlp) and a friendly interactive
+prompt interface using [Rich](https://github.com/Textualize/rich).
 
-## New Feature: Docker Support
+## Prerequisites
 
-In addition to running the downloader locally with Python, you can now run it inside a **Docker container**, making it even easier for others to use without installing Python or other dependencies.
+| Tool | Why | Install |
+|---|---|---|
+| Python 3.10+ | Run the app locally | `apt install python3 python3-venv` |
+| ffmpeg | Merge best-quality video + audio streams | `apt install ffmpeg` (or `make check_ffmpeg`) |
+| deno | JS runtime for yt-dlp (full format extraction) | `make check_deno` or [`deno.com`](https://docs.deno.com/runtime/manual/getting_started/installation) |
+| Docker (optional) | Run without installing anything locally | [docker.com](https://docs.docker.com/engine/install/) |
 
-1. **Build the Docker image** (from the project root):
-
-   ```bash
-   docker build -t youtube-downloader .
-   ```
-
-2. **Run the container**:
-
-   ```bash
-   docker run -it --rm youtube-downloader
-   ```
-
-   - `-it` (interactive + TTY) allows you to see the interactive prompts and respond in real time.
-   - `--rm` automatically removes the container when it stops, so you don’t clutter your system with stopped containers.
-
-3. **Share the Docker image**:
-   - (Optional) If you want others to use your pre-built image, push it to a registry (e.g., Docker Hub):
-     ```bash
-     docker tag youtube-downloader <your-dockerhub-username>/youtube-downloader:latest
-     docker push <your-dockerhub-username>/youtube-downloader:latest
-     ```
-   - Then others can simply:
-     ```bash
-     docker pull <your-dockerhub-username>/youtube-downloader:latest
-     docker run -it --rm <your-dockerhub-username>/youtube-downloader:latest
-     ```
-
-### Using a Default Download Path in Docker
-
-By default, if you run the image as-is, downloads go **inside the container** (e.g., `/root/Downloads`). If you prefer to use a **custom default path** (`/root/$USER/home/Download`) and have downloads appear **on your host machine**, you can use a **bind mount**:
+## Quick start (local)
 
 ```bash
-docker run -it --rm \
-  -v /path/on/your/host:/root/$USER/home/Download \
-  youtube-downloader
+make install      # create virtual environment and install dependencies
+make check_ffmpeg # install ffmpeg if missing
+make run          # launch the app
 ```
 
-- Replace `/path/on/your/host` with the directory on your **host** computer where you want the downloads to appear.
-- Inside the container, the path `/root/$USER/home/Download` is recognized as the download directory.
-- When prompted by the program for the “Download directory,” just press Enter to accept the default if you’ve set your code to that path. (Or type `/root/$USER/home/Download` explicitly if needed.)
+That's it. The app will guide you through:
 
-#### Example with Make
+1. Choose **Single Video** or **Playlist**
+2. Enter a **download directory** (default: `~/Downloads`)
+3. Paste a **YouTube URL** (supports `youtube.com` and `youtu.be`)
+4. Pick **quality** (Best / 1080p / 720p / 480p)
+5. Watch it download
 
-If you have a **Makefile**, you can add a target to simplify running Docker with this path:
+Press **Ctrl+C** at any prompt to cancel.
 
-```makefile
-docker-run:
-    docker run -it --rm \
-        -v $(PWD)/Downloads:/root/$(USER)/home/Download \
-        youtube-downloader
+## Step-by-step setup (local)
+
+```bash
+# 1. Clone the repo
+git clone https://github.com/yourusername/youtube-downloader.git
+cd youtube-downloader
+
+# 2. Create a virtual environment and install dependencies
+make install
+
+# 3. Make sure ffmpeg is available (required for best-quality downloads)
+make check_ffmpeg
+
+# 4. Run the application
+make run
 ```
 
-Then anyone can simply run:
+Or without Make:
+
+```bash
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+# Install deno if not present: https://docs.deno.com/runtime/manual/getting_started/installation
+export PATH="$HOME/.deno/bin:$PATH"
+.venv/bin/python main.py
+```
+
+## Docker
+
+Run the app without installing Python or any dependencies on your machine.
+
+### With Make
+
 ```bash
 make docker-run
 ```
-…and their **local `Downloads/` folder** is mounted to the container at `/root/$USER/home/Download`.
 
-That’s it! Now anyone with Docker installed can use the YouTube Downloader without manually installing Python or the required libraries, and still keep their downloaded files on their host system.
+Downloads are saved to `~/Downloads` on your host machine. To use a different
+directory:
 
----
+```bash
+HOST_DIR=/path/to/your/folder make docker-run
+```
+
+### Without Make
+
+```bash
+# Build the image
+docker build -t youtube-downloader .
+
+# Run (downloads stay inside the container, lost on exit)
+docker run -it --rm youtube-downloader
+
+# Run with a host mount to keep your downloads
+docker run -it --rm -v ~/Downloads:/root/Downloads youtube-downloader
+```
+
+When you mount `~/Downloads:/root/Downloads`, the app defaults to
+`/root/Downloads` inside the container, which maps straight to your host
+`~/Downloads`.
 
 ## Features
 
-1. **Single Video or Playlist**:
+- **Single video or playlist** — choose at the first prompt
+- **Quality presets** — Best, 1080p, 720p, 480p
+- **Progress bars** — see download speed, ETA, and percentage
+- **Tab completion** — press Tab when typing a directory path
+- **Graceful Ctrl+C** — no traceback spam, just a clean goodbye
+- **Logging** — all activity is logged to `downloader.log`
 
-   - Prompt-based selection: choose to download a single video or an entire YouTube playlist.
+## Updating dependencies
 
-2. **User-Friendly Prompts**:
+YouTube changes its API frequently. If downloads stop working, upgrade
+yt-dlp first:
 
-   - Uses [Rich Prompt](https://rich.readthedocs.io/en/stable/prompt.html) for colorful and interactive user input.
-   - Detailed explanations for each prompt (download mode, video quality, etc.).
+```bash
+# Edit requirements.in — bump the yt-dlp version
+make deps-update  # regenerates requirements.txt with pinned deps
+make install      # install the updated deps
+```
 
-3. **Graceful Interruption**:
+## Project structure
 
-   - Pressing **Ctrl+C** at any prompt immediately cancels the operation without displaying an exception traceback.
-   - Displays a short `Operation cancelled by user.` message and logs the interruption event (including a timestamp) in both the console and a log file.
-
-4. **Logging**:
-
-   - Uses Python’s logging module to capture all warnings, errors, and interruptions.
-   - Saves logs to `downloader.log` (or your chosen filename) for easy debugging and auditing.
-
-5. **Quality Selection**:
-
-   - Pick from “Best,” “High (1080p),” “Medium (720p),” or “Low (480p)” quality profiles.
-
-6. **History Support** (optional):
-   - Retains a history of previously entered directories/URLs for easy recall (if configured with `readline`).
-
----
-
-## Getting Started (Local Installation)
-
-1. **Clone the Repository**:
-
-   ```bash
-   git clone https://github.com/yourusername/youtube-downloader.git
-   cd youtube-downloader
-   ```
-
-2. **Install Dependencies** (via `make`):
-
-   ```bash
-   make install
-   ```
-
-   This sets up a local virtual environment (`.venv`) and installs all required packages from `requirements.txt`.
-
-3. **Check ffmpeg**:
-
-   ```bash
-   make check_ffmpeg
-   ```
-
-   Ensures `ffmpeg` is installed on your system.
-
-4. **Run the Application**:
-
-   ```bash
-   make run
-   ```
-   or
-   ```bash
-   .venv/bin/python main.py
-   ```
-
----
-
-## Usage
-
-1. **Select Mode**:
-
-   - Press **`1`** for a single video.
-   - Press **`2`** to download a playlist.
-
-2. **Enter Download Directory**:
-
-   - Defaults to `~/Downloads` (or `/root/$USER/home/Download` if you’ve set that in Docker).
-   - Press Enter to accept default, or specify a custom path.
-
-3. **Enter YouTube URL**:
-
-   - Checks validity (supports `youtube.com` and `youtu.be`).
-   - Prints an error message if invalid.
-
-4. **Choose Video Quality**:
-
-   - **1**: Best (highest available)
-   - **2**: High (up to 1080p)
-   - **3**: Medium (up to 720p)
-   - **4**: Low (up to 480p)
-
-5. **Download**:
-
-   - For single video mode, starts downloading immediately.
-   - For playlist mode, either downloads all videos or lets you choose specific ones from a list.
-
-6. **Cancel at Any Time**:
-   - Press **Ctrl+C** at any prompt if you change your mind.
-   - The program prints `^C` on the same line, followed by:
-     ```
-     ❌ Operation cancelled by user.
-     2025-03-14 19:19:10,455 - WARNING - Download interrupted by user (SIGINT).
-     ```
-     Then it gracefully exits without showing a traceback.
-
----
-
-## Logging
-
-- All log messages, including interruptions, are appended to **`downloader.log`** by default.
-- When **Ctrl+C** is pressed:
-  - A warning is logged with a timestamp and the message **"Download interrupted by user (SIGINT)."**
-
----
+```
+youtube-downloader/
+├── main.py          Entry point — interactive menu loop
+├── config.py        Quality presets and logging setup
+├── downloader.py    yt-dlp wrapper (download, playlist fetch)
+├── utils.py         Input prompts, URL validation, safe Ctrl+C
+├── requirements.in  Direct dependencies (edit this)
+├── requirements.txt Pinned dependencies (generated by pip-compile)
+├── Makefile         Shortcuts for install, run, Docker, cleanup
+├── AGENTS.md        Instructions for AI coding assistants
+└── Dockerfile       Container image definition
+```
 
 ## Troubleshooting
 
-- **Ctrl+C Not Working**:
-
-  - Make sure you’re using the included `safe_prompt` wrapper in `utils.py`.
-  - Confirm your logging setup has a **StreamHandler** if you want to see log messages in the console.
-
-- **`ffmpeg not found`**:
-
-  - Install `ffmpeg` for your operating system. For example, on Ubuntu/Debian:
-    ```bash
-    sudo apt-get update
-    sudo apt-get install ffmpeg
-    ```
-
-- **Permission Issues**:
-  - Ensure you have write permissions to your chosen download directory.
-
----
-
-## Contributing
-
-1. **Fork** the repository.
-2. **Create** a new branch for your feature.
-3. **Commit** your changes.
-4. **Push** to your fork.
-5. **Submit** a Pull Request (PR).
-
----
-
-## License
-
-This project is licensed under the [MIT License](LICENSE).  
-Feel free to copy, modify, and distribute under the same license.
+| Problem | Solution |
+|---|---|
+| "Sign in to confirm you're not a bot" | Update yt-dlp (`make deps-update && make install`) |
+| "ffmpeg not found" | Run `make check_ffmpeg` or `sudo apt install ffmpeg` |
+| "No supported JavaScript runtime" | Run `make check_deno` or install [deno](https://docs.deno.com/runtime/manual/getting_started/installation) |
+| Download fails mid-way | Try again — often a network glitch. Pick a lower quality if it persists |
+| Docker: permission denied | Mount your Downloads folder: `-v ~/Downloads:/root/Downloads` |
+| Anything else | Check `downloader.log` for details |

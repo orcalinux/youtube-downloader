@@ -1,152 +1,112 @@
 ###############################################################################
-# YouTube-Downloader – Makefile  (quiet, colour status, no emojis)
+# YouTube-Downloader – Makefile
 ###############################################################################
-# make run                → local venv run  (silent dependency install)
-# make docker-run         → build if needed + launch container
-# make deps-update        → regenerate requirements.{in,txt}
-# make help               → list all targets / variables
+# make run            → local venv run
+# make docker-run     → build (if needed) + launch container
+# make deps-update    → regenerate requirements.{in,txt}
+# make clean          → wipe venv, logs, docker image
+# make help           → all targets
 ###############################################################################
 
-# ── core paths ───────────────────────────────────────────────────────────────
+# ── paths ──────────────────────────────────────────────────────────────────
 VENV_DIR        := .venv
 PYTHON          := python3
 PIP             := $(VENV_DIR)/bin/pip
 PYTHON_BIN      := $(VENV_DIR)/bin/python
-
 REQUIREMENTS    := requirements.txt
 REQUIREMENTS_IN := requirements.in
 DEPS_OK_FILE    := $(VENV_DIR)/.deps-ok
 APP             := main.py
 
 IMAGE_NAME      := youtube-downloader
-DOCKER_STAMP    := .docker-built
+HOST_DIR        ?= $(HOME)/Downloads
+CONTAINER_DIR   := /root/Downloads
 
-HOST_DIR        ?= $(HOME)/Downloads   # bind mount on host
-CONTAINER_DIR   := /downloads          # bind mount inside container
+# ── phony targets ──────────────────────────────────────────────────────────
+.PHONY: all install help venv deps deps-update check_ffmpeg check_deno run docker-build docker-run clean
 
-BUILD_DEPS      := Dockerfile $(REQUIREMENTS) $(wildcard *.py utils/*.py)
+all: run ## Default — alias for `make run`
 
-# ── ANSI colours ─────────────────────────────────────────────────────────────
-CLR_RESET  := \033[0m
-CLR_YELLOW := \033[1;33m
-CLR_CYAN   := \033[1;36m
-CLR_GREEN  := \033[1;32m
-CLR_MAG    := \033[1;35m
-CLR_RED    := \033[1;31m
+install: deps check_ffmpeg check_deno ## Create venv, install deps, check ffmpeg & deno
 
-# ── phony targets ────────────────────────────────────────────────────────────
-.PHONY: all help run venv deps deps-update check_ffmpeg check_host_dir clean docker-build docker-run
+# ── virtual env & deps ─────────────────────────────────────────────────────
+$(VENV_DIR):
+	@python3 -m venv $@ >/dev/null
 
-###############################################################################
-all: run ## Default target – alias for `make run`
-###############################################################################
+venv: $(VENV_DIR) ## Create virtual environment
 
-# ── virtual-env & deps ───────────────────────────────────────────────────────
-$(VENV_DIR): ## Create a local Python virtual-environment
-	@printf "$(CLR_YELLOW)Creating virtual environment...$(CLR_RESET)\n"
-	@$(PYTHON) -m venv $@ >/dev/null
-
-venv: $(VENV_DIR) ## Explicitly create the venv (idempotent)
-
-$(DEPS_OK_FILE): $(REQUIREMENTS) | venv ## Install/upgrade Python deps
-	@printf "$(CLR_YELLOW)Installing Python packages...$(CLR_RESET)\n"
+$(DEPS_OK_FILE): $(REQUIREMENTS) | venv
+	@printf "Installing Python packages...\n"
 	@$(PIP) install --quiet --upgrade pip >/dev/null
 	@$(PIP) install --quiet -r $(REQUIREMENTS) >/dev/null
 	@date > $@
 
-deps: $(DEPS_OK_FILE) ## Ensure deps are installed (auto-called by run)
+deps: $(DEPS_OK_FILE) ## Install Python dependencies
 
-# ── deps-update ──────────────────────────────────────────────────────────────
-deps-update: | venv ## Re-generate requirements.{in,txt} from imports
-	@printf "$(CLR_CYAN)Regenerating requirements files...$(CLR_RESET)\n"
-	@$(PIP) show pipreqs  >/dev/null 2>&1 || $(PIP) install -q pipreqs
+# ── deps-update ────────────────────────────────────────────────────────────
+deps-update: | venv ## Regenerate requirements.{in,txt} via pip-compile
+	@printf "Regenerating requirements files...\n"
 	@$(PIP) show pip-tools >/dev/null 2>&1 || $(PIP) install -q pip-tools
-	@IGNORES=".git,.venv,__pycache__,build,dist,images,docs" ; \
-	$(VENV_DIR)/bin/pipreqs . --force --encoding=utf-8 \
-	    --ignore $$IGNORES --savepath $(REQUIREMENTS_IN) >/dev/null 2>&1
 	@$(VENV_DIR)/bin/pip-compile $(REQUIREMENTS_IN) \
 	    -o $(REQUIREMENTS) --strip-extras --quiet
 	@rm -f $(DEPS_OK_FILE)
-	@printf "$(CLR_GREEN)requirements.txt updated$(CLR_RESET)\n"
+	@printf "requirements.txt updated from $(REQUIREMENTS_IN)\n"
 
-# ── local run ────────────────────────────────────────────────────────────────
-check_ffmpeg: ## Check ffmpeg availability and install if missing
+# ── local run ──────────────────────────────────────────────────────────────
+check_deno: ## Install deno JS runtime (required by yt-dlp)
+	@if command -v deno >/dev/null 2>&1; then \
+	  printf "deno found: $$(deno --version | head -n1)\n"; \
+	elif [ -x "$$HOME/.deno/bin/deno" ]; then \
+	  printf "deno found at $$HOME/.deno/bin/deno (not in PATH)\n"; \
+	else \
+	  printf "Installing deno...\n"; \
+	  curl -fsSL https://deno.land/install.sh | sh; \
+	  printf "\nAdd to PATH: export PATH=\"\$$HOME/.deno/bin:\$$PATH\"\n"; \
+	fi
+
+check_ffmpeg: ## Install ffmpeg if missing
 	@if ! command -v ffmpeg >/dev/null 2>&1; then \
-	  printf "$(CLR_YELLOW)ffmpeg not found, attempting to install...$(CLR_RESET)\n"; \
+	  printf "ffmpeg not found, attempting to install...\n"; \
 	  if command -v apt >/dev/null 2>&1; then \
-	    printf "$(CLR_CYAN)Installing ffmpeg using apt...$(CLR_RESET)\n"; \
 	    sudo apt update -qq && sudo apt install -y ffmpeg; \
-	  elif command -v yum >/dev/null 2>&1; then \
-	    printf "$(CLR_CYAN)Installing ffmpeg using yum...$(CLR_RESET)\n"; \
-	    sudo yum install -y ffmpeg; \
-	  elif command -v dnf >/dev/null 2>&1; then \
-	    printf "$(CLR_CYAN)Installing ffmpeg using dnf...$(CLR_RESET)\n"; \
-	    sudo dnf install -y ffmpeg; \
-	  elif command -v pacman >/dev/null 2>&1; then \
-	    printf "$(CLR_CYAN)Installing ffmpeg using pacman...$(CLR_RESET)\n"; \
-	    sudo pacman -S --noconfirm ffmpeg; \
-	  elif command -v zypper >/dev/null 2>&1; then \
-	    printf "$(CLR_CYAN)Installing ffmpeg using zypper...$(CLR_RESET)\n"; \
-	    sudo zypper install -y ffmpeg; \
 	  elif command -v brew >/dev/null 2>&1; then \
-	    printf "$(CLR_CYAN)Installing ffmpeg using brew...$(CLR_RESET)\n"; \
 	    brew install ffmpeg; \
 	  else \
-	    printf "$(CLR_RED)No supported package manager found. Please install ffmpeg manually.$(CLR_RESET)\n"; \
-	    printf "$(CLR_RED)Visit: https://ffmpeg.org/download.html$(CLR_RESET)\n"; \
+	    printf "Please install ffmpeg manually: https://ffmpeg.org/download.html\n"; \
 	    exit 1; \
-	  fi; \
-	  if ! command -v ffmpeg >/dev/null 2>&1; then \
-	    printf "$(CLR_RED)Failed to install ffmpeg. Please install it manually.$(CLR_RESET)\n"; \
-	    exit 1; \
-	  else \
-	    printf "$(CLR_GREEN)ffmpeg successfully installed!$(CLR_RESET)\n"; \
 	  fi; \
 	else \
-	  printf "$(CLR_GREEN)ffmpeg found: $$(ffmpeg -version | head -n1)$(CLR_RESET)\n"; \
+	  printf "ffmpeg found: $$(ffmpeg -version | head -n1)\n"; \
 	fi
 
-run: deps check_ffmpeg ## Launch the app locally inside the venv
-	@printf "$(CLR_GREEN)Starting application [local]...$(CLR_RESET)\n"
-	@$(PYTHON_BIN) $(APP)
+run: deps check_ffmpeg check_deno ## Launch the app locally
+	@printf "Starting application...\n"
+	@PATH="$$HOME/.deno/bin:$$PATH" $(PYTHON_BIN) $(APP)
 
-# ── Docker build & run ───────────────────────────────────────────────────────
-$(DOCKER_STAMP): $(BUILD_DEPS) ## Build docker image if sources changed
-	@printf "$(CLR_YELLOW)Building Docker image...$(CLR_RESET)\n"
-	@docker build --progress=plain -t $(IMAGE_NAME) . >/dev/null
-	@date > $@
+# ── Docker ─────────────────────────────────────────────────────────────────
+docker-build: ## Build the Docker image
+	@docker build -t $(IMAGE_NAME) . 2>&1 | tail -3
 
-docker-build: $(DOCKER_STAMP) ## Force build the image now
-
-# Create HOST_DIR if missing and ensure it's writable
-check_host_dir: ## Ensure HOST_DIR exists & is writable (auto-called by docker-run)
+docker-run: docker-build ## Build (if needed) + run in Docker
 	@if [ ! -d "$(HOST_DIR)" ]; then \
-	  printf "$(CLR_YELLOW)Creating host directory: $(HOST_DIR)$(CLR_RESET)\n"; \
-	  mkdir -p "$(HOST_DIR)" || { printf "$(CLR_RED)Failed to create $(HOST_DIR)$(CLR_RESET)\n"; exit 1; }; \
+	  mkdir -p "$(HOST_DIR)"; \
 	fi
-	@touch "$(HOST_DIR)/.__write_test__" 2>/dev/null || { \
-	  printf "$(CLR_RED)HOST_DIR is not writable: $(HOST_DIR)$(CLR_RESET)\n"; \
-	  exit 1; }
-	@rm -f "$(HOST_DIR)/.__write_test__"
-
-docker-run: check_host_dir docker-build ## Build (if needed) + run the container
-	@printf "$(CLR_GREEN)Launching container → $(HOST_DIR)$(CLR_RESET)\n"
+	@printf "Launching Docker container — downloads saved to $(HOST_DIR)\n"
 	@docker run -it --rm \
 	    -v "$(HOST_DIR)":"$(CONTAINER_DIR)" \
 	    -e XDG_DOWNLOAD_DIR="$(CONTAINER_DIR)" \
-	    --name "$(IMAGE_NAME)" \
 	    "$(IMAGE_NAME)"
 
-# ── cleanup ──────────────────────────────────────────────────────────────────
-clean: ## Wipe venv, logs and docker-build stamp
-	@printf "$(CLR_MAG)Cleaning workspace...$(CLR_RESET)\n"
-	@rm -rf $(VENV_DIR) *.log $(DOCKER_STAMP)
+# ── cleanup ────────────────────────────────────────────────────────────────
+clean: ## Remove venv, logs, and Docker image
+	@rm -rf $(VENV_DIR) *.log
+	@docker rmi -f $(IMAGE_NAME) 2>/dev/null || true
+	@printf "Cleaned: venv, logs, and Docker image\n"
 
-# ── help ─────────────────────────────────────────────────────────────────────
+# ── help ───────────────────────────────────────────────────────────────────
 help: ## Show this help
-	@printf "\n$(CLR_GREEN)Targets$(CLR_RESET)\n"
+	@printf "\nTargets\n"
 	@grep -E '^[a-zA-Z_-]+:.*?##' $(MAKEFILE_LIST) | \
 	  awk 'BEGIN{FS=":.*?##"}{printf "  %-14s %s\n",$$1,$$2}'
-	@printf "\n$(CLR_GREEN)Variable overrides$(CLR_RESET)\n"
-	@printf "  HOST_DIR=/path        Host download directory (default: $$HOME/Downloads)\n"
-	@printf "  CONTAINER_DIR=/path   Mount point *inside* container (default: /downloads)\n\n"
+	@printf "\nVariables\n"
+	@printf "  HOST_DIR=/path  Host download dir (default: \$$HOME/Downloads)\n\n"

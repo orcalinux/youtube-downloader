@@ -1,29 +1,28 @@
-# ───────────────────────────── Dockerfile ─────────────────────────────
 FROM python:3.12-slim
 
-# ── system deps ───────────────────────────────────────────────────────
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends ffmpeg ca-certificates && \
-    rm -rf /var/lib/apt/lists/*
+RUN apt-get update \
+    &&     apt-get install -y --no-install-recommends ffmpeg ca-certificates curl unzip \
+    && rm -rf /var/lib/apt/lists/*
 
-# ── create non-root user and own /app ─────────────────────────────────
-RUN useradd -ms /bin/bash downloader \
-    && mkdir -p /app \
-    && chown downloader:downloader /app
+RUN curl -fsSL https://deno.land/install.sh | sh \
+    && ln -s /root/.deno/bin/deno /usr/local/bin/deno
+
+ENV PATH="/root/.deno/bin:${PATH}"
 
 WORKDIR /app
 
-# ── deps first (good cache) ───────────────────────────────────────────
-COPY --chown=downloader:downloader requirements.txt requirements.in* ./
+COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
-# ── copy the source, already owned by downloader ──────────────────────
-COPY --chown=downloader:downloader . .
+# Pre-cache yt-dlp remote challenge solver so first-run is instant
+RUN python3 << 'EOF' 2>/dev/null || true
+from yt_dlp import YoutubeDL
+YoutubeDL({'remote_components': {'ejs:github'}, 'quiet': True}).extract_info(
+    'https://youtu.be/dQw4w9WgXcQ', download=False)
+EOF
 
-USER downloader
+COPY . .
 
-# default download dir (override with HOST_DIR / CONTAINER_DIR from Make)
-ENV XDG_DOWNLOAD_DIR=/downloads
-VOLUME ["/downloads"]
+ENV XDG_DOWNLOAD_DIR=/root/Downloads
 
 ENTRYPOINT ["python", "main.py"]
