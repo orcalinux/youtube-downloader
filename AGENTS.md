@@ -42,9 +42,9 @@ make docker-run                # HOST_DIR defaults to ~/Downloads
 HOST_DIR=/path make docker-run # override
 ```
 
-Bare Docker: `docker run -it --rm -v ~/Downloads:/root/Downloads youtube-downloader`
+Bare Docker: `docker run -it --rm -v $(pwd):/app youtube-downloader`
 
-Container runs as `root`. deno is pre-installed and challenge-solver scripts are pre-cached in the image.
+Container runs as `root`. deno is pre-installed and challenge-solver scripts are pre-cached in the image. The app code lives at `/opt/app`; `/app` is reserved as the download directory.
 
 ## Conventions (repo-specific)
 

@@ -68,7 +68,7 @@ Run the app without installing Python or any dependencies on your machine.
 make docker-run
 ```
 
-Downloads are saved to `~/Downloads` on your host machine. To use a different
+Downloads are saved to your current directory. To use a different
 directory:
 
 ```bash
@@ -85,12 +85,12 @@ docker build -t youtube-downloader .
 docker run -it --rm youtube-downloader
 
 # Run with a host mount to keep your downloads
-docker run -it --rm -v ~/Downloads:/root/Downloads youtube-downloader
+docker run -it --rm -v $(pwd):/app youtube-downloader
 ```
 
-When you mount `~/Downloads:/root/Downloads`, the app defaults to
-`/root/Downloads` inside the container, which maps straight to your host
-`~/Downloads`.
+When you mount `$(pwd):/app`, the app defaults to
+`/app` inside the container, which maps straight to your current
+directory.
 
 ## Features
 
@@ -135,5 +135,5 @@ youtube-downloader/
 | "ffmpeg not found" | Run `make check_ffmpeg` or `sudo apt install ffmpeg` |
 | "No supported JavaScript runtime" | Run `make check_deno` or install [deno](https://docs.deno.com/runtime/manual/getting_started/installation) |
 | Download fails mid-way | Try again — often a network glitch. Pick a lower quality if it persists |
-| Docker: permission denied | Mount your Downloads folder: `-v ~/Downloads:/root/Downloads` |
+| Docker: permission denied | Mount your current folder: `-v $(pwd):/app` |
 | Anything else | Check `downloader.log` for details |

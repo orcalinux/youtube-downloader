@@ -25,16 +25,19 @@ def safe_prompt(prompt_str, **kwargs):
     while True:
         try:
             return Prompt.ask(prompt_str, **kwargs)
-        except KeyboardInterrupt:
+        except (KeyboardInterrupt, EOFError):
             print("")  # keep ^C on the same line
             console.print("[bold red]Interrupted![/bold red]")
-            choice = Prompt.ask(
-                "Do you really want to exit?",
-                choices=["y", "n"],
-                default="y",
-                show_choices=True,
-                show_default=True,
-            )
+            try:
+                choice = Prompt.ask(
+                    "Do you really want to exit?",
+                    choices=["y", "n"],
+                    default="y",
+                    show_choices=True,
+                    show_default=True,
+                )
+            except (KeyboardInterrupt, EOFError):
+                choice = "y"
             if choice.lower() == "y":
                 console.print("[bold blue]Goodbye![/bold blue]")
                 sys.exit(0)
@@ -88,11 +91,15 @@ def prompt_directory():
 
             return os.path.abspath(os.path.expanduser(text))
 
-        except KeyboardInterrupt:
+        except (KeyboardInterrupt, EOFError):
             print("")
             console.print("[bold red]Interrupted![/bold red]")
-            if Prompt.ask("Do you really want to exit?", choices=["y", "n"],
-                          default="y") == "y":
+            try:
+                choice = Prompt.ask("Do you really want to exit?", choices=["y", "n"],
+                                    default="y")
+            except (KeyboardInterrupt, EOFError):
+                choice = "y"
+            if choice == "y":
                 console.print("[bold blue]Goodbye![/bold blue]")
                 sys.exit(0)
             console.print("[bold green]Resuming...[/bold green]")

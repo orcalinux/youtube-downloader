@@ -9,7 +9,7 @@ RUN curl -fsSL https://deno.land/install.sh | sh \
 
 ENV PATH="/root/.deno/bin:${PATH}"
 
-WORKDIR /app
+WORKDIR /opt/app
 
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
@@ -23,6 +23,6 @@ EOF
 
 COPY . .
 
-ENV XDG_DOWNLOAD_DIR=/root/Downloads
+ENV XDG_DOWNLOAD_DIR=/app
 
-ENTRYPOINT ["python", "main.py"]
+ENTRYPOINT ["python", "/opt/app/main.py"]

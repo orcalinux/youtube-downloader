@@ -1,8 +1,4 @@
 import logging
-import os
-
-# Default download directory
-DEFAULT_DOWNLOAD_DIR = os.path.expanduser('~/Downloads')
 
 # Quality mapping
 VIDEO_QUALITIES = {

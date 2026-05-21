@@ -20,7 +20,7 @@ APP             := main.py
 
 IMAGE_NAME      := youtube-downloader
 HOST_DIR        ?= $(HOME)/Downloads
-CONTAINER_DIR   := /root/Downloads
+CONTAINER_DIR   := /app
 
 # ── phony targets ──────────────────────────────────────────────────────────
 .PHONY: all install help venv deps deps-update check_ffmpeg check_deno run docker-build docker-run clean
@@ -109,4 +109,4 @@ help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?##' $(MAKEFILE_LIST) | \
 	  awk 'BEGIN{FS=":.*?##"}{printf "  %-14s %s\n",$$1,$$2}'
 	@printf "\nVariables\n"
-	@printf "  HOST_DIR=/path  Host download dir (default: \$$HOME/Downloads)\n\n"
+	@printf "  HOST_DIR=/path  Host download dir (default: \$$HOME/Downloads, mounted to /app)\n\n"
